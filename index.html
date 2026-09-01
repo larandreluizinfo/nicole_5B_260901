@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Os Três Ursos</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(180deg,#0b1f3a 0%,#0b1f3a 60%,#2b5a8c 100%);
+    color:#fff;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow-x:hidden;
+  }
+  #game {
+    width:100%;
+    max-width:820px;
+    padding:20px;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+  h1 { text-align:center; font-size:2.2rem; margin-bottom:4px; letter-spacing:1px; }
+  .sub { text-align:center; opacity:.8; margin-bottom:18px; }
+  #scene {
+    background: rgba(0,0,0,.35);
+    border-radius:18px;
+    padding:24px;
+    box-shadow:0 8px 30px rgba(0,0,0,.5);
+    flex:1;
+  }
+  #emoji-loc { font-size:4.5rem; text-align:center; margin-bottom:10px; line-height:1; }
+  #title { font-size:1.5rem; text-align:center; margin-bottom:14px; font-weight:700; }
+  #desc { line-height:1.6; font-size:1.1rem; margin-bottom:20px; }
+  #bears {
+    display:flex; justify-content:center; gap:30px; margin-bottom:18px; text-align:center;
+  }
+  .bear { opacity:.6; transition:.3s; }
+  .bear.glow { opacity:1; }
+  .bear .e { font-size:3rem; display:block; }
+  .bear .n { font-size:.95rem; opacity:.85; }
+  #choices { display:flex; flex-direction:column; gap:10px; }
+  button.choice {
+    background:#3a6ea5; color:#fff; border:none; border-radius:12px;
+    padding:14px 18px; font-size:1.05rem; cursor:pointer; transition:.2s; text-align:left;
+  }
+  button.choice:hover { background:#4d8ac4; transform:translateX(4px); }
+  #reset {
+    margin-top:18px; display:block; width:100%; padding:12px;
+    background:#c0392b; color:#fff; border:none; border-radius:12px; font-size:1.05rem; cursor:pointer;
+  }
+  #reset:hover { background:#d9534f; }
+  .health { text-align:center; margin-bottom:14px; font-size:1.05rem; }
+  .hp { color:#4ade80; font-weight:700; }
+  .win { color:#4ade80; } .lose { color:#f87171; }
+  @media(max-width:500px){ h1{font-size:1.7rem;} #emoji-loc{font-size:3.4rem;} }
+</style>
+</head>
+<body>
+<div id="game">
+  <h1>🐻 Os Três Ursos</h1>
+  <div class="sub">Panda, Marrom e Branco — fugindo dos humanos pela cidade!</div>
+  <div id="scene">
+    <div class="health">❤️ Aviso dos humanos: <span class="hp" id="hp">3</span> / 3</div>
+    <div id="emoji-loc">🏠</div>
+    <div id="title">A caverna</div>
+    <div id="desc"></div>
+    <div id="bears">
+      <div class="bear glow"><span class="e">🐼</span><span class="n">Panda</span></div>
+      <div class="bear glow"><span class="e">🐻</span><span class="n">Marrom</span></div>
+      <div class="bear glow"><span class="e">🐻‍❄️</span><span class="n">Branco</span></div>
+    </div>
+    <div id="choices"></div>
+    <button id="reset" style="display:none;">🔁 Jogar de novo</button>
+  </div>
+</div>
+
+<script>
+const START_HP = 3;
+let hp = START_HP;
+let current = "inicio";
+
+const scene = {
+  inicio: {
+    emoji: "🏠",
+    title: "A caverna",
+    desc: "Em uma montanha escondida há uma caverna. Dentro dela, uma casa aconchegante dos Três Ursos: o Panda, o Marrom e o Branco. Hoje eles estão com muita fome de peixes! Mas cuidado... os humanos não podem descobrir que eles falam. 🐟🌲",
+    choices: [
+      { t: "🐟 Descer até o lago de peixes", g: "lago" },
+      { t: "🕵️‍♂️ Espiar da entrada da caverna olhando a cidade", g: "espiar" }
+    ]
+  },
+  espiar: {
+    emoji: "🏙️",
+    title: "A cidade lá embaixo",
+    desc: "Lá embaixo brilha uma cidade grande, cheia de lojas, luzes e muita gente humana andando para lá e para cá. É arriscado, mas os ursos adoram comida de loja. 🏬",
+    choices: [
+      { t: "🏙️ Descer para a cidade", g: "cidade" },
+      { t: "🐟 Ir primeiro pescar no lago", g: "lago" }
+    ]
+  },
+  lago: {
+    emoji: "🪝🐟",
+    title: "O lago",
+    desc: "Os três ursos jogam as patas na água e pegam peixes fresquinhos! Eles comem até se fartar. Mas o barulho chamou atenção de um humano por perto... 😨",
+    choices: [
+      { t: "🏃 Correr de volta para a caverna", g: "volta_caverna" },
+      { t: "🏙️ Fugir para dentro da cidade", g: "cidade" }
+    ]
+  },
+  volta_caverna: {
+    emoji: "🛡️",
+    title: "Na segurança da caverna",
+    desc: "Os ursos correm para dentro da caverna bem a tempo. Ufa! Eles escondem o peixe e ficam quietinhos até o humano ir embora. Ninguém descobriu o segredo deles. 🤫",
+    choices: [
+      { t: "🏙️ Ir espiar a cidade de novo", g: "cidade" },
+      { t: "🐟 Voltar a pescar no lago", g: "lago" }
+    ]
+  },
+  cidade: {
+    emoji: "🏙️🚶",
+    title: "Ruas da cidade",
+    desc: "Os três ursos andam de mansinho pelas ruas movimentadas. Tem muita gente! Eles precisam se esconder antes que alguém repare em três animais tão grandes. 😬",
+    choices: [
+      { t: "👕 Entrar numa loja de roupas e virar manequins", g: "loja_roupas" },
+      { t: "🍞 Entrar numa loja de comida", g: "loja_comida" }
+    ]
+  },
+  loja_roupas: {
+    emoji: "👗🧥",
+    title: "Loja de roupas",
+    desc: "Dentro da loja, os ursos pegam roupas e se montam como manequins! O Panda veste um paletó, o Marrom um casaco xadrez e o Branco um cachecol enorme. Eles ficam parados, duros, sem piscar... Os clientes nem desconfiam! 🧍‍♂️🧍‍♂️🧍‍♂️",
+    choices: [
+      { t: "🚶 Continuar andando pela cidade", g: "cidade2" },
+      { t: "🍕 Ir à loja de comida comer peixe", g: "loja_comida" }
+    ]
+  },
+  loja_comida: {
+    emoji: "🍣🗞️",
+    title: "Loja de comida",
+    desc: "Os ursos entram numa peixaria e se deliciam com o cheiro de peixe fresco. Para não serem reconhecidos, cada um cobre o rosto com um jornal! Enquanto leem o jornal (de cabeça pra baixo 😜), eles devoram os peixes escondidos.",
+    choices: [
+      { t: "👕 Ir à loja de roupas virar manequim", g: "loja_roupas" },
+      { t: "🏬 Explorar o shopping de lojas", g: "shopping" }
+    ]
+  },
+  cidade2: {
+    emoji: "🏙️🚶",
+    title: "De volta às ruas",
+    desc: "Após a loja de roupas, os ursos continuam andando disfarçados. Um policial olha desconfiado para o Panda... será que ele suspeita? 🐻👮",
+    choices: [
+      { t: "😨 Fugir rapidinho para a loja de comida", g: "police1" },
+      { t: "🧊 Ficar parado, imitando manequim de novo", g: "manequim2" }
+    ]
+  },
+  police1: {
+    emoji: "🏃😨",
+    title: "Fuga apertada!",
+    desc: "Eles correram tão depressa que o Panda tropeçou! O policial ficou desconfiado e chamou mais humanos. Os ursos mal conseguiram se esconder atrás de uma caixa de peixes. 😓",
+    choices: [
+      { t: "➖ Levar -1 de aviso e continuar", g: "continuar1" }
+    ]
+  },
+  manequim2: {
+    emoji: "🧊👕",
+    title: "Manequim congelado",
+    desc: "Os três ficaram absolutamente parados como bonecos. O policial passou bem na frente, olhou... e seguiu em frente! A ideia do disfarce funcionou perfeitamente. 😎",
+    choices: [
+      { t: "😮‍💨 Continuar em segurança", g: "continuar2" }
+    ]
+  },
+  continuar1: {
+    emoji: "🏬",
+    title: "Shopping das lojas",
+    desc: "Apesar do susto, os ursos chegaram ao shopping, um paraíso de lojas e peixes assados. O Panda ainda está com o guardanapo na cabeça. 😅",
+    choices: [
+      { t: "🎯 Ir para a grande peixaria do shopping", g: "final" }
+    ]
+  },
+  continuar2: {
+    emoji: "🏬",
+    title: "Shopping das lojas",
+    desc: "Livre de suspeitas, os ursos chegam ao shopping cheio de lojas. O Marrom ainda se sente muito chique com seu casaco xadrez. 🧥",
+    choices: [
+      { t: "🎯 Ir para a grande peixaria do shopping", g: "final" }
+    ]
+  },
+  shopping: {
+    emoji: "🏬",
+    title: "Shopping das lojas",
+    desc: "O shopping é enorme, com lojas de todos os tipos. Um homem de jaleco oferece amostras de comida... e reconhece algo estranho no Ursinho Branco! 😳",
+    choices: [
+      { t: "🏃 Correr para a peixaria logo", g: "final" }
+    ]
+  },
+  final: {
+    emoji: "🐟🏆",
+    title: "A grande peixaria",
+    desc: "Na peixaria do shopping havia um banquete de peixes! Os Três Ursos, disfarçados e com jornais cobrindo o rosto, devoraram até ficarem satisfeitos. Nenhum humano descobriu o segredo. Eles escaparam, espertos como sempre! 🎉🐼🐻🐻‍❄️",
+    choices: [
+      { t: "✨ Recomeçar a aventura", g: "restart" }
+    ]
+  }
+};
+
+function rend() {
+  const s = scene[current];
+  document.getElementById("emoji-loc").textContent = s.emoji;
+  document.getElementById("title").textContent = s.title;
+  document.getElementById("desc").textContent = s.desc;
+  document.getElementById("hp").textContent = hp + " / " + START_HP;
+  const c = document.getElementById("choices");
+  c.innerHTML = "";
+  s.choices.forEach(ch => {
+    const b = document.createElement("button");
+    b.className = "choice";
+    b.textContent = ch.t;
+    b.onclick = () => go(ch.g);
+    c.appendChild(b);
+  });
+  const r = document.getElementById("reset");
+  const win = (current === "final");
+  r.style.display = (hp <= 0 || win) ? "block" : "none";
+  if (hp <= 0) {
+    document.getElementById("title").textContent = "Os humanos descobriram o segredo! 😱";
+    document.getElementById("desc").textContent = "Os Três Ursos foram avistados falando e a cidade inteira correu atrás deles. A aventura acabou desta vez... mas os ursos sempre têm uma nova ideia. 🏃‍♂️💨";
+    c.innerHTML = "";
+  }
+  if (win) document.getElementById("title").textContent = "🎉 Sucesso! Os Três Ursos escaparam!";
+}
+
+function go(g) {
+  if (g === "restart") { hp = START_HP; current = "inicio"; rend(); return; }
+  current = g;
+  rend();
+  if (hp <= 0) return;
+  if (current === "police1") {
+    hp--;
+    setTimeout(() => { current = "continuar1"; rend(); }, 400);
+  }
+  if (current === "manequim2") {
+    setTimeout(() => { current = "continuar2"; rend(); }, 400);
+  }
+  if (current === "shopping") {
+    setTimeout(() => { current = "final"; rend(); }, 400);
+  }
+}
+
+document.getElementById("reset").onclick = () => { hp = START_HP; current = "inicio"; rend(); };
+rend();
+</script>
+</body>
+</html>
