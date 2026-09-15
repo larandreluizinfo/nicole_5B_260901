@@ -36,8 +36,8 @@
 </head>
 <body>
 <header>
-  <h1>🐻 Os Três Ursos na Cidade</h1>
-  <p>Controle o urso andando pela cidade. Pegue peixes, se esconda dos humanos!</p>
+  <h1>🐻 Os Três Ursos na Floresta</h1>
+  <p>Controle o urso andando pela floresta. Pegue peixes e se esconda nas casas e lojas!</p>
 </header>
 <div id="wrap">
   <canvas id="canvas"></canvas>
@@ -48,7 +48,7 @@
   <b>Movimento:</b><br>
   <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Setas<br>
   Correr: <kbd>Shift</kbd><br>
-  Esconder: pise no tile amarelo da loja 🟨<br>
+  Esconder: entre nas casas 🏠 e lojas 🏪<br>
   <small>Móvel: arraste/toque na tela</small><br>
   <small>R = reiniciar</small>
 </div>
@@ -62,58 +62,63 @@ const AVS = document.getElementById("avs");
 const HIDESTATE = document.getElementById("hideState");
 document.getElementById("btnReset").addEventListener("click",()=>reset());
 
-const T = 42; // tile size
-const cols = 34, rows = 22;
+const T = 48; // tile size (tela maior)
+const cols = 36, rows = 24;
 cv.width = cols*T; cv.height = rows*T;
 
-// tile map: .=chao,1=quarteirao/loja,2=predio,3=lagoa,4=estrada (todas as linhas com 34 cols)
+// tile map: .=grama,1=árvore,2=pedra,3=lago,4=trilha,H=parede,C=casa,L=loja (36 cols)
 const map = [
-"1111111111111111111111111111111111",
-"1......22..22....22..............1",
-"1..22..22..22..2222..33.......22.1",
-"1..22...........22...........22..1",
-"1......22....22....22............1",
-"1......22....22....22.....222222.1",
-"1...44..........44..........22...1",
-"1...44...11..1..44..1..11....22..1",
-"1...44..........44...........22..1",
-"1...4444....11...44...11.........1",
-"1....................11..........1",
-"1...11..11..................1....1",
-"1...11..11..................1....1",
-"1..............11....11....1.22..1",
-"1.....11.......11....11....12222.1",
-"1.....11.....11..11..21.......1..1",
-"1.......2222.......22.........1..1",
-"1...3333....33..22..21..11...1...1",
-"1...3333....33..22....111...1....1",
-"1.....33..111...11....11...1.....1",
-"1......1..111.............111111.1",
-"1111111111111111111111111111111111"
+"111111111111111111111111111111111111",
+"1..............1..41...1...........1",
+"1.HHHHHHH.....11..4........HHHHHHH.1",
+"1.HCCCCCH....1..1.4.1......HLLLLLH.1",
+"1.HCCCCCH..11.....4........HLLLLLH.1",
+"1.HCCCCCH...1.....41.1..11.HLLLLLH.1",
+"1.HHH..HH.........4........HHH..HH.1",
+"1................14...2............1",
+"144444444444444444444444444444444441",
+"1.....1.....1.....4...1............1",
+"1........1...333..4..........1.....1",
+"1..........133333.4..1......1...11.1",
+"1......1...13333314....1......1.1.11",
+"1.......2....3331.4.......1..1.....1",
+"1.....1...1.......4..............1.1",
+"144444444444444444444444444444444441",
+"1............21...4.....1..........1",
+"1.HHH..HH....11...4.1......HHH..HH.1",
+"1.HCCCCCH......1..4.1......HLLLLLH.1",
+"1.HCCCCCH.........4........HLLLLLH.1",
+"1.HCCCCCH..1..11..4...111..HLLLLLH.1",
+"1.HHHHHHH.........4.1..2...HHHHHHH.1",
+"1..............1..4....1.1.........1",
+"111111111111111111111111111111111111"
 ];
 
 const tiles = {
-  '1':{solid:true,color:'#2d5a3a',name:'parede'},   // quarteirão/loja
-  '2':{solid:true,color:'#1d3f56',name:'predio'},    // predio
-  '3':{solid:false,color:'#46b3e6',name:'agua'},     // lagoa
-  '4':{solid:false,color:'#5a6a7a',name:'estrada'},  // estrada
-  '0':{solid:false,color:'#97b96b',name:'chao'},     // calçada
-  '.':{solid:false,color:'#97b96b',name:'chao'}      // calçada (alias usado no mapa)
+  '1':{solid:true,color:'#1e4d2b',name:'arvore'},    // árvore densa (bloqueia)
+  '2':{solid:true,color:'#5b6b5c',name:'pedra'},     // pedra (bloqueia)
+  '3':{solid:true,color:'#2e86c1',name:'lago'},      // lago (bloqueia)
+  '4':{solid:false,color:'#8a7a5a',name:'trilha'},   // trilha de terra
+  'H':{solid:true,color:'#6e4a2f',name:'parede'},    // parede de casa/loja
+  'C':{solid:false,color:'#a98a5a',name:'casa'},     // interior da casa (esconderijo)
+  'L':{solid:false,color:'#c9a86a',name:'loja'},     // interior da loja (esconderijo)
+  '0':{solid:false,color:'#3f7d3a',name:'grama'},    // grama
+  '.':{solid:false,color:'#3f7d3a',name:'grama'}     // grama (alias usado no mapa)
 };
 
-// pontos de esconderijo (lojas) e peixe
+// pontos de peixe (todos em tiles pisáveis)
 const peixes = [
-  {x:6,y:2},{x:8,y:3},{x:14,y:6},{x:18,y:7},{x:24,y:2},
-  {x:26,y:10},{x:10,y:11},{x:12,y:13},{x:20,y:15},{x:27,y:18}
+  {x:3,y:1},{x:20,y:1},{x:10,y:3},{x:24,y:4},{x:8,y:9},
+  {x:24,y:10},{x:7,y:13},{x:24,y:13},{x:10,y:19},{x:24,y:21}
 ];
-const esconderijos = [ // lojas (tiles pisáveis) - representada como célula
-  {x:22,y:8,name:'Loja de Roupas 👗',tipo:'roupa'},
-  {x:6,y:13,name:'Peixaria 🐟',tipo:'comida'},
-  {x:11,y:9,name:'Casa de Comida 🍞',tipo:'comida'},
-  {x:27,y:16,name:'Loja de Roupas 🧥',tipo:'roupa'}
+const esconderijos = [ // casas e lojas: entrar no interior esconde
+  {x:4,y:4,name:'Casa do Lago 🏠',tipo:'casa'},
+  {x:30,y:4,name:'Loja da Colina 🏪',tipo:'loja'},
+  {x:4,y:19,name:'Casa da Clareira 🏠',tipo:'casa'},
+  {x:30,y:19,name:'Loja da Floresta 🏪',tipo:'loja'}
 ];
 
-let player = { x:2*T+T/2, y:19*T+T/2, vx:0, vy:0, dir:0, moving:false, hid:false };
+let player = { x:18*T+T/2, y:22*T+T/2, vx:0, vy:0, dir:0, moving:false, hid:false };
 let peixeColetados = 0;
 let avisos = 3;
 let peixeState = peixes.map(()=>true);
@@ -134,13 +139,10 @@ function solidAt(cx,cy){
   return tiles[t]?tiles[t].solid:true;
 }
 
-// humanos simples (patrulham)
+// humano único (patrulha a trilha principal)
 function initHumanos(){
   humanos = [
-    {x:16*T,y:9*T,dir:1,ax:13, bx:20, vel:0.7},
-    {x:4*T,y:15*T,dir:1,ax:2, bx:10, vel:0.6},
-    {x:26*T,y:6*T,dir:1,ax:22, bx:30, vel:0.8},
-    {x:12*T,y:18*T,dir:1,ax:8, bx:16, vel:0.7}
+    {x:18*T,y:8*T,dir:1,ax:4, bx:31, vel:0.7}
   ];
 }
 
@@ -197,11 +199,12 @@ function update(dt){
     tryMove(ix*speed, iy*speed);
   }
 
-  // esconderijo: jogador fica escondido ao pisar no tile da loja
+  // esconderijo: dentro de casa (C) ou loja (L) o urso fica escondido
   const pcx=Math.floor(player.x/T), pcy=Math.floor(player.y/T);
+  const tileAqui=(map[pcy]&&map[pcy][pcx])||'.';
   const wasHid=player.hid;
-  player.hid = esconderijos.some(e=>e.x===pcx && e.y===pcy);
-  if(player.hid && !wasHid) showMsg('🫣 Escondido! Humanos não te veem aqui.',1200);
+  player.hid = (tileAqui==='C'||tileAqui==='L');
+  if(player.hid && !wasHid) showMsg('🫣 Escondido dentro do abrigo! O humano não te vê.',1200);
   HIDESTATE.textContent = player.hid ? '🫣 Escondido' : '';
   if(hitCooldown>0) hitCooldown-=dt;
 
@@ -246,21 +249,33 @@ function draw(){
       const t=map[cy][cx], tile=tiles[t]||tiles['.'];
       ctx.fillStyle=tile.color;
       ctx.fillRect(cx*T,cy*T,T,T);
-      if(t==='1'||t==='2'){
-        ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=2;
+      if(t==='1'){
+        ctx.font=(T-14)+'px sans-serif'; ctx.textAlign='center';
+        ctx.fillText('🌲',cx*T+T/2,cy*T+T/2+10);
+      } else if(t==='2'){
+        ctx.font=(T-18)+'px sans-serif'; ctx.textAlign='center';
+        ctx.fillText('🪨',cx*T+T/2,cy*T+T/2+9);
+      } else if(t==='H'){
+        ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=3;
         ctx.strokeRect(cx*T+2,cy*T+2,T-4,T-4);
       }
     }
   }
-  // esconderijos (lojas) - brilham na entrada
+  // casas e lojas: nome no centro + destaque verde se o urso está dentro
+  const ptx=Math.floor(player.x/T), pty=Math.floor(player.y/T);
   for(const e of esconderijos){
-    const cx=e.x, cy=e.y;
-    const occupied = Math.floor(player.x/T)===cx && Math.floor(player.y/T)===cy;
-    ctx.fillStyle= occupied ? 'rgba(74,222,128,.55)' : 'rgba(255,255,0,.18)';
-    ctx.fillRect(cx*T,cy*T,T,T);
-    ctx.font='9px sans-serif'; ctx.fillStyle='#fff';
+    const occupied = ptx===e.x && pty===e.y;
+    if(occupied){
+      ctx.fillStyle='rgba(74,222,128,.45)';
+      // realça o interior inteiro do abrigo onde o jogador está
+      for(let dy=-2;dy<=2;dy++)for(let dx=-3;dx<=3;dx++){
+        const ch2=(map[pty+dy]&&map[pty+dy][ptx+dx])||'.';
+        if(ch2==='C'||ch2==='L') ctx.fillRect((ptx+dx)*T,(pty+dy)*T,T,T);
+      }
+    }
+    ctx.font='bold 11px sans-serif'; ctx.fillStyle='#fff';
     ctx.textAlign='center';
-    ctx.fillText(e.name, cx*T+T/2, cy*T+T/2);
+    ctx.fillText(e.name, e.x*T+T/2, e.y*T+T/2+4);
   }
   // peixes
   for(let i=0;i<peixes.length;i++){
@@ -311,7 +326,7 @@ function loop(ts){
   if(gameOver){
     ctx.fillStyle='rgba(0,0,0,.7)'; ctx.fillRect(0,0,cv.width,cv.height);
     ctx.fillStyle='#f87171'; ctx.font='bold 40px sans-serif'; ctx.textAlign='center';
-    ctx.fillText('Os humanos te viram! 😱',cv.width/2,cv.height/2-20);
+    ctx.fillText('O humano te viu! 😱',cv.width/2,cv.height/2-20);
     ctx.fillStyle='#fff'; ctx.font='20px sans-serif';
     ctx.fillText('Pressione R para jogar de novo',cv.width/2,cv.height/2+30);
   } else if(vitoria){
@@ -329,7 +344,7 @@ document.addEventListener('keydown',e=>{
 });
 
 function reset(){
-  player={x:2*T+T/2,y:19*T+T/2,vx:0,vy:0,dir:0,moving:false,hid:false};
+  player={x:18*T+T/2,y:22*T+T/2,vx:0,vy:0,dir:0,moving:false,hid:false};
   peixeColetados=0; avisos=3; peixeState=peixes.map(()=>true);
   hitCooldown=0;
   gameOver=false;vitoria=false; initHumanos();
