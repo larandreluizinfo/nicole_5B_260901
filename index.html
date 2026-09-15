@@ -16,8 +16,8 @@
   }
   header h1 { font-size:1.3rem; }
   header p { font-size:.85rem; opacity:.8; }
-  #wrap { position:relative; }
-  #canvas { display:block; margin:auto; background:#3a6ea5; touch-action:none; }
+  #wrap { position:relative; display:flex; justify-content:center; }
+  #canvas { display:block; background:#3a6ea5; touch-action:none; max-width:100vw; max-height:calc(100vh - 130px); width:auto; height:auto; }
   #hud {
     position:fixed; left:10px; top:10px; background:rgba(0,0,0,.55);
     padding:8px 14px; border-radius:10px; font-size:.9rem; z-index:10;
@@ -42,13 +42,15 @@
 <div id="wrap">
   <canvas id="canvas"></canvas>
 </div>
-<div id="hud">🐟 Peixes: <b id="peixes">0</b> &nbsp; ⚠️ Avisos: <b id="avs">3</b></div>
+<div id="hud">🐟 Peixes: <b id="peixes">0</b> &nbsp; ⚠️ Avisos: <b id="avs">3</b> &nbsp; <span id="hideState"></span> &nbsp; <button id="btnReset">↻ Reiniciar</button></div>
 <div id="msg"></div>
 <div id="controls">
   <b>Movimento:</b><br>
   <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Setas<br>
   Correr: <kbd>Shift</kbd><br>
-  <small>Móvel: arraste/toque na tela</small>
+  Esconder: pise no tile amarelo da loja 🟨<br>
+  <small>Móvel: arraste/toque na tela</small><br>
+  <small>R = reiniciar</small>
 </div>
 
 <script>
@@ -57,34 +59,36 @@ const ctx = cv.getContext("2d");
 const MSG = document.getElementById("msg");
 const PEIXES = document.getElementById("peixes");
 const AVS = document.getElementById("avs");
+const HIDESTATE = document.getElementById("hideState");
+document.getElementById("btnReset").addEventListener("click",()=>reset());
 
 const T = 42; // tile size
 const cols = 34, rows = 22;
 cv.width = cols*T; cv.height = rows*T;
 
-// tile map: 0=chao,1=paredes/quarteiroes,2=agua,3=lagoa,4=estrada
+// tile map: .=chao,1=quarteirao/loja,2=predio,3=lagoa,4=estrada (todas as linhas com 34 cols)
 const map = [
 "1111111111111111111111111111111111",
 "1......22..22....22..............1",
-"1..22..22..22..2222..33.......22..1",
+"1..22..22..22..2222..33.......22.1",
 "1..22...........22...........22..1",
-"1......22....22....22.............1",
-"1......22....22....22.....222222..1",
+"1......22....22....22............1",
+"1......22....22....22.....222222.1",
 "1...44..........44..........22...1",
 "1...44...11..1..44..1..11....22..1",
 "1...44..........44...........22..1",
-"1...4444....11...44...11........1",
-"1....................11........1",
-"1...11..11..................1..1",
-"1...11..11..................1..1",
-"1..............11....11....1.22.1",
-"1.....11.......11....11....122221",
-"1.....11.....11..11..21.......1.1",
-"1.......2222.......22.........1.1",
-"1...3333....33..22..21..11...1..1",
-"1...3333....33..22....111...1..1",
-"1.....33..111...11....11...1...1",
-"1......1..111.............1111111",
+"1...4444....11...44...11.........1",
+"1....................11..........1",
+"1...11..11..................1....1",
+"1...11..11..................1....1",
+"1..............11....11....1.22..1",
+"1.....11.......11....11....12222.1",
+"1.....11.....11..11..21.......1..1",
+"1.......2222.......22.........1..1",
+"1...3333....33..22..21..11...1...1",
+"1...3333....33..22....111...1....1",
+"1.....33..111...11....11...1.....1",
+"1......1..111.............111111.1",
 "1111111111111111111111111111111111"
 ];
 
@@ -93,18 +97,19 @@ const tiles = {
   '2':{solid:true,color:'#1d3f56',name:'predio'},    // predio
   '3':{solid:false,color:'#46b3e6',name:'agua'},     // lagoa
   '4':{solid:false,color:'#5a6a7a',name:'estrada'},  // estrada
-  '0':{solid:false,color:'#97b96b',name:'chao'}      // calçada
+  '0':{solid:false,color:'#97b96b',name:'chao'},     // calçada
+  '.':{solid:false,color:'#97b96b',name:'chao'}      // calçada (alias usado no mapa)
 };
 
 // pontos de esconderijo (lojas) e peixe
 const peixes = [
   {x:6,y:2},{x:8,y:3},{x:14,y:6},{x:18,y:7},{x:24,y:2},
-  {x:26,y:10},{x:10,y:11},{x:12,y:13},{x:20,y:15},{x:28,y:18}
+  {x:26,y:10},{x:10,y:11},{x:12,y:13},{x:20,y:15},{x:27,y:18}
 ];
-const esconderijos = [ // lojas (dentro de blocos) - representada como célula
+const esconderijos = [ // lojas (tiles pisáveis) - representada como célula
   {x:22,y:8,name:'Loja de Roupas 👗',tipo:'roupa'},
   {x:6,y:13,name:'Peixaria 🐟',tipo:'comida'},
-  {x:12,y:9,name:'Casa de Comida 🍞',tipo:'comida'},
+  {x:11,y:9,name:'Casa de Comida 🍞',tipo:'comida'},
   {x:27,y:16,name:'Loja de Roupas 🧥',tipo:'roupa'}
 ];
 
@@ -114,6 +119,7 @@ let avisos = 3;
 let peixeState = peixes.map(()=>true);
 let humanos = [];
 let tempo = 0;
+let hitCooldown = 0;
 let gameOver = false, vitoria = false;
 
 function isSolid(px,py){
@@ -142,10 +148,15 @@ const keys={};
 document.addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;});
 document.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
 
-// controles touch
+// controles touch (com correção de escala CSS -> coordenadas do mundo)
 let touchActive=false,touchX=0,touchY=0;
-cv.addEventListener('touchstart',e=>{touchActive=true;const r=cv.getBoundingClientRect();touchX=e.touches[0].clientX-r.left;touchY=e.touches[0].clientY-r.top;e.preventDefault();},{passive:false});
-cv.addEventListener('touchmove',e=>{const r=cv.getBoundingClientRect();touchX=e.touches[0].clientX-r.left;touchY=e.touches[0].clientY-r.top;e.preventDefault();},{passive:false});
+function touchToWorld(e){
+  const r=cv.getBoundingClientRect();
+  const sx=cv.width/r.width, sy=cv.height/r.height;
+  return { x:(e.touches[0].clientX-r.left)*sx, y:(e.touches[0].clientY-r.top)*sy };
+}
+cv.addEventListener('touchstart',e=>{touchActive=true;const p=touchToWorld(e);touchX=p.x;touchY=p.y;e.preventDefault();},{passive:false});
+cv.addEventListener('touchmove',e=>{const p=touchToWorld(e);touchX=p.x;touchY=p.y;e.preventDefault();},{passive:false});
 cv.addEventListener('touchend',()=>{touchActive=false;});
 
 function tryMove(dx,dy){
@@ -186,6 +197,14 @@ function update(dt){
     tryMove(ix*speed, iy*speed);
   }
 
+  // esconderijo: jogador fica escondido ao pisar no tile da loja
+  const pcx=Math.floor(player.x/T), pcy=Math.floor(player.y/T);
+  const wasHid=player.hid;
+  player.hid = esconderijos.some(e=>e.x===pcx && e.y===pcy);
+  if(player.hid && !wasHid) showMsg('🫣 Escondido! Humanos não te veem aqui.',1200);
+  HIDESTATE.textContent = player.hid ? '🫣 Escondido' : '';
+  if(hitCooldown>0) hitCooldown-=dt;
+
   // coletar peixes
   for(let i=0;i<peixes.length;i++){
     if(peixeState[i]){
@@ -205,14 +224,15 @@ function update(dt){
     h.x += h.dir*h.vel*dt*T;
     if(h.x<h.ax*T) h.dir=1;
     if(h.x>h.bx*T) h.dir=-1;
-    // alcance do jogador (se nao escondido)
+    // alcance do jogador (se nao escondido, com cooldown anti-dreno)
     const dx=player.x-h.x, dy=player.y-h.y;
     const d=Math.hypot(dx,dy);
-    if(!player.hid && d<T*1.6){
+    if(!player.hid && d<T*1.6 && hitCooldown<=0){
       avisos--; AVS.textContent=avisos;
+      hitCooldown=1.5;
       showMsg('⚠️ Um humano quase te viu!',1300);
-      // empurra o jogador
-      const push=14; tryMove(Math.sign(dx)*-push, Math.sign(dy)*-push);
+      // empurra o jogador PARA LONGE do humano
+      if(d>1){ tryMove(dx/d*18, dy/d*18); }
       if(avisos<=0) gameOver=true;
     }
   }
@@ -223,7 +243,7 @@ function draw(){
   // tiles
   for(let cy=0;cy<rows;cy++){
     for(let cx=0;cx<cols;cx++){
-      const t=map[cy][cx], tile=tiles[t];
+      const t=map[cy][cx], tile=tiles[t]||tiles['.'];
       ctx.fillStyle=tile.color;
       ctx.fillRect(cx*T,cy*T,T,T);
       if(t==='1'||t==='2'){
@@ -235,7 +255,8 @@ function draw(){
   // esconderijos (lojas) - brilham na entrada
   for(const e of esconderijos){
     const cx=e.x, cy=e.y;
-    ctx.fillStyle='rgba(255,255,0,.18)';
+    const occupied = Math.floor(player.x/T)===cx && Math.floor(player.y/T)===cy;
+    ctx.fillStyle= occupied ? 'rgba(74,222,128,.55)' : 'rgba(255,255,0,.18)';
     ctx.fillRect(cx*T,cy*T,T,T);
     ctx.font='9px sans-serif'; ctx.fillStyle='#fff';
     ctx.textAlign='center';
@@ -310,6 +331,7 @@ document.addEventListener('keydown',e=>{
 function reset(){
   player={x:2*T+T/2,y:19*T+T/2,vx:0,vy:0,dir:0,moving:false,hid:false};
   peixeColetados=0; avisos=3; peixeState=peixes.map(()=>true);
+  hitCooldown=0;
   gameOver=false;vitoria=false; initHumanos();
   PEIXES.textContent='0'; AVS.textContent='3';
 }
