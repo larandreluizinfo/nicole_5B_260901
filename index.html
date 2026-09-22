@@ -36,8 +36,8 @@
 </head>
 <body>
 <header>
-  <h1>🐻 Os Três Ursos na Floresta</h1>
-  <p>Controle o urso andando pela floresta. Pegue peixes e se esconda nas casas e lojas!</p>
+  <h1>🐻 Nicole 👑, Ana Elisa e Pretinha 🐶 na Floresta</h1>
+  <p>Controle a Nicole (ursa princesa de blusa branca e calça azul), com Ana Elisa (ursa normal) e Pretinha (cachorra preta). Fuja dos 2 caçadores!</p>
 </header>
 <div id="wrap">
   <canvas id="canvas"></canvas>
@@ -45,13 +45,14 @@
 <div id="hud">🐟 Peixes: <b id="peixes">0</b> &nbsp; ⚠️ Avisos: <b id="avs">3</b> &nbsp; <span id="hideState"></span> &nbsp; <button id="btnReset">↻ Reiniciar</button></div>
 <div id="msg"></div>
 <div id="controls">
-  <b>Movimento:</b><br>
-  <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Setas<br>
-  Correr: <kbd>Shift</kbd><br>
-  Esconder: entre nas casas 🏠 e lojas 🏪<br>
-  <small>Móvel: arraste/toque na tela</small><br>
-  <small>R = reiniciar</small>
-</div>
+   <b>Movimento (Nicole 👑 lidera):</b><br>
+   <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Setas<br>
+   Correr: <kbd>Shift</kbd><br>
+   Esconder: leve as 3 para casas 🏠 e lojas 🏪<br>
+   <small>Móvel: arraste/toque na tela</small><br>
+   <small>R = reiniciar</small><br>
+   <small>🐻 Nicole (princesa) | 🐻 Ana Elisa | 🐶 Pretinha</small>
+ </div>
 
 <script>
 const cv = document.getElementById("canvas");
@@ -118,7 +119,13 @@ const esconderijos = [ // casas e lojas: entrar no interior esconde
   {x:30,y:19,name:'Loja da Floresta 🏪',tipo:'loja'}
 ];
 
-let player = { x:18*T+T/2, y:22*T+T/2, vx:0, vy:0, dir:0, moving:false, hid:false };
+// 3 personagens: Nicole (ursa princesa - blusa branca + calça azul + coroa), Ana Elisa (ursa normal), Pretinha (cachorra pelo preto)
+let personagens = [
+  { nome:'Nicole', tipo:'ursa-princesa', x:18*T+T/2, y:22*T+T/2, dir:0, moving:false, hid:false, emoji:'🐻' },
+  { nome:'Ana Elisa', tipo:'ursa', x:17*T+T/2, y:22*T+T/2, dir:0, moving:false, hid:false, emoji:'🐻' },
+  { nome:'Pretinha', tipo:'cachorra', x:16*T+T/2, y:22*T+T/2, dir:0, moving:false, hid:false, emoji:'🐕‍🦺' }
+];
+let player = personagens[0]; // líder = Nicole (compat com toque/câmera)
 let peixeColetados = 0;
 let avisos = 3;
 let peixeState = peixes.map(()=>true);
@@ -139,10 +146,11 @@ function solidAt(cx,cy){
   return tiles[t]?tiles[t].solid:true;
 }
 
-// humano único (patrulha a trilha principal)
+// dois caçadores (patrulham as trilhas)
 function initHumanos(){
   humanos = [
-    {x:18*T,y:8*T,dir:1,ax:4, bx:31, vel:0.7}
+    {x:18*T,y:8*T+T/2,dir:1,ax:4, bx:31, vel:0.8, nome:'Caçador 1', emoji:'🤠'},
+    {x:20*T,y:15*T+T/2,dir:-1,ax:4, bx:31, vel:1.0, nome:'Caçador 2', emoji:'🤠'}
   ];
 }
 
@@ -161,26 +169,29 @@ cv.addEventListener('touchstart',e=>{touchActive=true;const p=touchToWorld(e);to
 cv.addEventListener('touchmove',e=>{const p=touchToWorld(e);touchX=p.x;touchY=p.y;e.preventDefault();},{passive:false});
 cv.addEventListener('touchend',()=>{touchActive=false;});
 
-function tryMove(dx,dy){
-  const nx=player.x+dx, ny=player.y+dy;
+function tryMoveChar(c,dx,dy){
+  const nx=c.x+dx, ny=c.y+dy;
   const r=9;
   // verificar cantos para colisão
   if(!isSolid(nx-r,ny-r)&&!isSolid(nx+r,ny-r)&&!isSolid(nx-r,ny+r)&&!isSolid(nx+r,ny+r)){
-    player.x=nx; player.y=ny; return true;
+    c.x=nx; c.y=ny; return true;
   }
   // mover apenas em x
-  if(!isSolid(nx-r,player.y-r)&&!isSolid(nx+r,player.y-r)&&!isSolid(nx-r,player.y+r)&&!isSolid(nx+r,player.y+r)){
-    player.x=nx;
+  if(!isSolid(nx-r,c.y-r)&&!isSolid(nx+r,c.y-r)&&!isSolid(nx-r,c.y+r)&&!isSolid(nx+r,c.y+r)){
+    c.x=nx;
   }
-  if(!isSolid(player.x-r,ny-r)&&!isSolid(player.x+r,ny-r)&&!isSolid(player.x-r,ny+r)&&!isSolid(player.x+r,ny+r)){
-    player.y=ny;
+  if(!isSolid(c.x-r,ny-r)&&!isSolid(c.x+r,ny-r)&&!isSolid(c.x-r,ny+r)&&!isSolid(c.x+r,ny+r)){
+    c.y=ny;
   }
   return true;
+}
+function tryMove(dx,dy){
+  return tryMoveChar(player,dx,dy);
 }
 
 function update(dt){
   if(gameOver||vitoria) return;
-  // movimento do jogador
+  // movimento da líder (Nicole)
   let ix=0, iy=0;
   if(keys['w']||keys['arrowup']) iy=-1;
   if(keys['s']||keys['arrowdown']) iy=1;
@@ -193,50 +204,82 @@ function update(dt){
   }
   const run = keys['shift']?1.8:1;
   const speed = 110*run*dt;
-  player.moving=(ix!==0||iy!==0);
+  const lider = personagens[0];
+  lider.moving=(ix!==0||iy!==0);
   if(ix||iy){
-    player.dir = Math.atan2(iy,ix);
-    tryMove(ix*speed, iy*speed);
+    lider.dir = Math.atan2(iy,ix);
+    tryMoveChar(lider, ix*speed, iy*speed);
   }
 
-  // esconderijo: dentro de casa (C) ou loja (L) o urso fica escondido
-  const pcx=Math.floor(player.x/T), pcy=Math.floor(player.y/T);
-  const tileAqui=(map[pcy]&&map[pcy][pcx])||'.';
-  const wasHid=player.hid;
-  player.hid = (tileAqui==='C'||tileAqui==='L');
-  if(player.hid && !wasHid) showMsg('🫣 Escondido dentro do abrigo! O humano não te vê.',1200);
-  HIDESTATE.textContent = player.hid ? '🫣 Escondido' : '';
+  // seguidoras: Ana Elisa e Pretinha seguem a anterior
+  for(let k=1;k<personagens.length;k++){
+    const c = personagens[k];
+    const alvo = personagens[k-1];
+    const dx = alvo.x - c.x, dy = alvo.y - c.y;
+    const d = Math.hypot(dx,dy);
+    c.moving = d > 8;
+    if(d > 32){
+      c.dir = Math.atan2(dy,dx);
+      const sp = 135*run*dt;
+      // normaliza para não correr demais
+      const nx = dx/d*sp, ny = dy/d*sp;
+      tryMoveChar(c, nx, ny);
+    }
+  }
+
+  // esconderijo: dentro de casa (C) ou loja (L) fica escondido (individual)
+  let todasEscondidas = true;
+  for(const c of personagens){
+    const pcx=Math.floor(c.x/T), pcy=Math.floor(c.y/T);
+    const tileAqui=(map[pcy]&&map[pcy][pcx])||'.';
+    const wasHid=c.hid;
+    c.hid = (tileAqui==='C'||tileAqui==='L');
+    if(c.hid && !wasHid) showMsg('🫣 '+c.nome+' se escondeu no abrigo!',1200);
+    if(!c.hid) todasEscondidas=false;
+  }
+  const wasGroupHid = player.hid;
+  player.hid = todasEscondidas;
+  if(todasEscondidas && !wasGroupHid) showMsg('🫣 Todas escondidas! Os caçadores não veem vocês.',1500);
+  HIDESTATE.textContent = todasEscondidas ? '🫣 Escondidas' : '';
   if(hitCooldown>0) hitCooldown-=dt;
 
-  // coletar peixes
+  // coletar peixes (qualquer uma das 3 pode pegar)
   for(let i=0;i<peixes.length;i++){
     if(peixeState[i]){
       const p=peixes[i];
-      const dx=player.x-(p.x*T+T/2), dy=player.y-(p.y*T+T/2);
-      if(Math.hypot(dx,dy)<T*0.7){
-        peixeState[i]=false; peixeColetados++;
-        PEIXES.textContent=peixeColetados;
-        showMsg('🐟 Pegou um peixe!',900);
-        if(peixeColetados>=peixes.length) vitoria=true;
+      const px=p.x*T+T/2, py=p.y*T+T/2;
+      for(const c of personagens){
+        const dx=c.x-px, dy=c.y-py;
+        if(Math.hypot(dx,dy)<T*0.7){
+          peixeState[i]=false; peixeColetados++;
+          PEIXES.textContent=peixeColetados;
+          showMsg('🐟 '+c.nome+' pegou um peixe!',900);
+          if(peixeColetados>=peixes.length) vitoria=true;
+          break;
+        }
       }
     }
   }
 
-  // humanos patrulham
+  // caçadores patrulham
   for(const h of humanos){
     h.x += h.dir*h.vel*dt*T;
     if(h.x<h.ax*T) h.dir=1;
     if(h.x>h.bx*T) h.dir=-1;
-    // alcance do jogador (se nao escondido, com cooldown anti-dreno)
-    const dx=player.x-h.x, dy=player.y-h.y;
-    const d=Math.hypot(dx,dy);
-    if(!player.hid && d<T*1.6 && hitCooldown<=0){
-      avisos--; AVS.textContent=avisos;
-      hitCooldown=1.5;
-      showMsg('⚠️ Um humano quase te viu!',1300);
-      // empurra o jogador PARA LONGE do humano
-      if(d>1){ tryMove(dx/d*18, dy/d*18); }
-      if(avisos<=0) gameOver=true;
+    // se QUALQUER personagem visível estiver perto, perde aviso
+    for(const c of personagens){
+      if(c.hid) continue;
+      const dx=c.x-h.x, dy=c.y-h.y;
+      const d=Math.hypot(dx,dy);
+      if(d<T*1.6 && hitCooldown<=0){
+        avisos--; AVS.textContent=avisos;
+        hitCooldown=1.5;
+        showMsg('⚠️ '+h.nome+' quase viu a '+c.nome+'!',1300);
+        // empurra PARA LONGE do caçador
+        if(d>1){ tryMoveChar(c, dx/d*18, dy/d*18); }
+        if(avisos<=0) gameOver=true;
+        break;
+      }
     }
   }
   tempo+=dt;
@@ -261,16 +304,18 @@ function draw(){
       }
     }
   }
-  // casas e lojas: nome no centro + destaque verde se o urso está dentro
-  const ptx=Math.floor(player.x/T), pty=Math.floor(player.y/T);
+  // casas e lojas: nome no centro + destaque verde se alguma personagem está dentro
   for(const e of esconderijos){
-    const occupied = ptx===e.x && pty===e.y;
+    let occupied=null;
+    for(const c of personagens){
+      const ptx=Math.floor(c.x/T), pty=Math.floor(c.y/T);
+      if(ptx===e.x && pty===e.y){ occupied={x:ptx,y:pty}; break; }
+    }
     if(occupied){
       ctx.fillStyle='rgba(74,222,128,.45)';
-      // realça o interior inteiro do abrigo onde o jogador está
       for(let dy=-2;dy<=2;dy++)for(let dx=-3;dx<=3;dx++){
-        const ch2=(map[pty+dy]&&map[pty+dy][ptx+dx])||'.';
-        if(ch2==='C'||ch2==='L') ctx.fillRect((ptx+dx)*T,(pty+dy)*T,T,T);
+        const ch2=(map[occupied.y+dy]&&map[occupied.y+dy][occupied.x+dx])||'.';
+        if(ch2==='C'||ch2==='L') ctx.fillRect((occupied.x+dx)*T,(occupied.y+dy)*T,T,T);
       }
     }
     ctx.font='bold 11px sans-serif'; ctx.fillStyle='#fff';
@@ -285,29 +330,71 @@ function draw(){
     const bob=Math.sin(tempo*3+i)*3;
     ctx.fillText('🐟',p.x*T+T/2, p.y*T+T/2+bob);
   }
-  // humanos
+  // caçadores
   for(const h of humanos){
     ctx.font='28px sans-serif'; ctx.textAlign='center';
-    ctx.fillText('🧑',h.x,h.y-4);
+    ctx.fillText(h.emoji||'🤠',h.x,h.y-4);
+    ctx.font='bold 12px sans-serif';
+    ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.7)';
+    ctx.strokeText(h.nome, h.x, h.y-30);
+    ctx.fillStyle='#ffdddd'; ctx.fillText(h.nome, h.x, h.y-30);
+    ctx.font='16px sans-serif';
+    ctx.fillText('🔫',h.x+16,h.y-8);
     // alcance
-    ctx.strokeStyle='rgba(255,80,80,.15)'; ctx.lineWidth=2;
+    ctx.strokeStyle='rgba(255,80,80,.25)'; ctx.lineWidth=2;
     ctx.beginPath(); ctx.arc(h.x,h.y,T*1.6,0,Math.PI*2); ctx.stroke();
   }
-  // jogador (urso)
-  const bob2=player.moving?Math.sin(tempo*10)*3:0;
-  const flip = Math.cos(player.dir)<0;
-  ctx.save();
-  ctx.translate(player.x, player.y+bob2);
-  if(flip) ctx.scale(-1,1);
-  ctx.font=player.moving?'30px sans-serif':'28px sans-serif';
-  ctx.textAlign='center';
-  ctx.fillText('🐻',0,-4);
-  // escondido (jornaL)
-  if(player.hid){
-    ctx.font='16px sans-serif';
-    ctx.fillText('🗞️',6,-16);
+  // desenha nome com contorno
+  function drawNome(txt,x,y){
+    ctx.font='bold 13px sans-serif'; ctx.textAlign='center';
+    ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.75)';
+    ctx.strokeText(txt,x,y);
+    ctx.fillStyle='#fff'; ctx.fillText(txt,x,y);
   }
-  ctx.restore();
+  // 3 personagens
+  for(const c of personagens){
+    const bob2=c.moving?Math.sin(tempo*10+c.x*0.05)*3:0;
+    const flip = Math.cos(c.dir)<0;
+    ctx.save();
+    ctx.translate(c.x, c.y+bob2);
+    if(flip) ctx.scale(-1,1);
+    ctx.textAlign='center';
+    if(c.tipo==='ursa-princesa'){
+      // calça azul + blusa branca da princesa
+      ctx.fillStyle='#2255cc'; // calça azul
+      ctx.fillRect(-11,2,22,10);
+      ctx.fillStyle='#ffffff'; // blusa branca
+      ctx.fillRect(-11,-8,22,11);
+      ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=1;
+      ctx.strokeRect(-11,-8,22,21);
+      ctx.font='28px sans-serif';
+      ctx.fillText('🐻',0,-4);
+      ctx.font='18px sans-serif';
+      ctx.fillText('👑',0,-24); // coroa de princesa
+      ctx.font='12px sans-serif';
+      ctx.fillText('👗',12,-10);
+    } else if(c.tipo==='ursa'){
+      ctx.font='28px sans-serif';
+      ctx.fillText('🐻',0,-4);
+    } else if(c.tipo==='cachorra'){
+      // pelo preto: círculo preto atrás
+      ctx.fillStyle='#111111';
+      ctx.beginPath(); ctx.arc(0,-10,15,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#333'; ctx.lineWidth=2; ctx.stroke();
+      ctx.font='26px sans-serif';
+      ctx.fillText('🐶',0,-3);
+    }
+    if(c.hid){
+      ctx.font='16px sans-serif';
+      ctx.fillText('🗞️',8,-18);
+    }
+    ctx.restore();
+    // nome em cima
+    let label = c.nome;
+    if(c.tipo==='ursa-princesa') label = '👑 '+c.nome;
+    if(c.tipo==='cachorra') label = '🐶 '+c.nome;
+    drawNome(label, c.x, c.y-38+bob2);
+  }
 }
 
 function showMsg(t,dur){
@@ -326,13 +413,13 @@ function loop(ts){
   if(gameOver){
     ctx.fillStyle='rgba(0,0,0,.7)'; ctx.fillRect(0,0,cv.width,cv.height);
     ctx.fillStyle='#f87171'; ctx.font='bold 40px sans-serif'; ctx.textAlign='center';
-    ctx.fillText('O humano te viu! 😱',cv.width/2,cv.height/2-20);
+    ctx.fillText('Os caçadores viram vocês! 😱',cv.width/2,cv.height/2-20);
     ctx.fillStyle='#fff'; ctx.font='20px sans-serif';
     ctx.fillText('Pressione R para jogar de novo',cv.width/2,cv.height/2+30);
   } else if(vitoria){
     ctx.fillStyle='rgba(0,0,0,.7)'; ctx.fillRect(0,0,cv.width,cv.height);
     ctx.fillStyle='#4ade80'; ctx.font='bold 40px sans-serif'; ctx.textAlign='center';
-    ctx.fillText('🎉 Você escapou!',cv.width/2,cv.height/2-20);
+    ctx.fillText('🎉 Nicole, Ana Elisa e Pretinha escaparam!',cv.width/2,cv.height/2-20);
     ctx.fillStyle='#fff'; ctx.font='20px sans-serif';
     ctx.fillText('Todos os peixes coletados! Pressione R para jogar de novo',cv.width/2,cv.height/2+30);
   }
@@ -344,7 +431,12 @@ document.addEventListener('keydown',e=>{
 });
 
 function reset(){
-  player={x:18*T+T/2,y:22*T+T/2,vx:0,vy:0,dir:0,moving:false,hid:false};
+  personagens = [
+    { nome:'Nicole', tipo:'ursa-princesa', x:18*T+T/2, y:22*T+T/2, dir:0, moving:false, hid:false, emoji:'🐻' },
+    { nome:'Ana Elisa', tipo:'ursa', x:17*T+T/2, y:22*T+T/2, dir:0, moving:false, hid:false, emoji:'🐻' },
+    { nome:'Pretinha', tipo:'cachorra', x:16*T+T/2, y:22*T+T/2, dir:0, moving:false, hid:false, emoji:'🐕‍🦺' }
+  ];
+  player = personagens[0];
   peixeColetados=0; avisos=3; peixeState=peixes.map(()=>true);
   hitCooldown=0;
   gameOver=false;vitoria=false; initHumanos();
